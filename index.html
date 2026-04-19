@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>SketchPad</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #141414;
+    --canvas-bg: #1e1e1e;
+    --ink: #e8e4da;
+    --ui-bg: rgba(20,20,20,0.92);
+    --ui-border: rgba(232,228,218,0.12);
+    --accent: #e8724a;
+    --btn-hover: rgba(232,228,218,0.06);
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    overflow: hidden;
+    touch-action: none;
+  }
+
+  #canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    cursor: crosshair;
+    touch-action: none;
+  }
+
+  body.eraser-mode #canvas { cursor: cell; }
+
+  #toolbar {
+    position: fixed;
+    top: 16px; left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--ui-bg);
+    border: 1px solid var(--ui-border);
+    border-radius: 14px;
+    padding: 6px 8px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+    z-index: 100;
+  }
+
+  .sep { width: 1px; height: 20px; background: var(--ui-border); margin: 0 4px; }
+
+  .btn {
+    width: 36px; height: 36px;
+    border: none; background: transparent; border-radius: 9px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--ink); font-family: 'DM Mono', monospace; font-size: 13px;
+    transition: background 0.15s, color 0.15s, transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn:hover { background: var(--btn-hover); }
+  .btn:active { transform: scale(0.9); }
+  .btn.active { background: var(--ink); color: var(--canvas-bg); }
+  .btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+  #btn-copy { color: var(--accent); }
+  #btn-copy svg { stroke: var(--accent); }
+
+  #size-wrap { display: flex; align-items: center; gap: 6px; padding: 0 6px; }
+  #size-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--ink); transition: width 0.1s, height 0.1s; flex-shrink: 0;
+  }
+  #size-slider {
+    -webkit-appearance: none; appearance: none;
+    width: 60px; height: 3px; background: var(--ui-border);
+    border-radius: 2px; outline: none; cursor: pointer;
+  }
+  #size-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--ink); cursor: pointer;
+  }
+
+  #eraser-indicator {
+    position: fixed; border: 1.5px solid var(--accent); border-radius: 50%;
+    pointer-events: none; opacity: 0; transition: opacity 0.1s;
+    z-index: 50; transform: translate(-50%, -50%);
+  }
+
+  /* 画像プレビューポップアップ */
+  #preview-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.8);
+    z-index: 300;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+    padding: 24px;
+  }
+  #preview-overlay.show { display: flex; }
+
+  #preview-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: rgba(232,228,218,0.5);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  #preview-img {
+    max-width: 100%; max-height: 65vh;
+    border-radius: 8px;
+    border: 1px solid rgba(232,228,218,0.15);
+    display: block;
+  }
+
+  #preview-close {
+    font-family: 'DM Mono', monospace; font-size: 12px;
+    color: var(--ink); background: var(--ui-bg);
+    border: 1px solid var(--ui-border); border-radius: 8px;
+    padding: 10px 28px; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #toast {
+    position: fixed; bottom: 32px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--ink); color: var(--canvas-bg);
+    font-family: 'DM Mono', monospace; font-size: 12px;
+    padding: 8px 16px; border-radius: 8px;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+    white-space: nowrap; z-index: 400;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+<div id="eraser-indicator"></div>
+
+<div id="toolbar">
+  <button class="btn active" id="btn-pen" title="ペン">
+    <svg viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+  </button>
+  <button class="btn" id="btn-eraser" title="消しゴム（パス単位）">
+    <svg viewBox="0 0 24 24"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
+  </button>
+
+  <div class="sep"></div>
+
+  <div id="size-wrap">
+    <div id="size-dot"></div>
+    <input type="range" id="size-slider" min="2" max="20" value="2">
+  </div>
+
+  <div class="sep"></div>
+
+  <button class="btn" id="btn-undo" title="元に戻す">
+    <svg viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+  </button>
+
+  <button class="btn" id="btn-clear" title="クリア">
+    <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>
+  </button>
+
+  <div class="sep"></div>
+
+  <button class="btn" id="btn-copy" title="共有">
+    <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+  </button>
+</div>
+
+<!-- プレビューポップアップ -->
+<div id="preview-overlay">
+  <div id="preview-label">長押しで共有</div>
+  <img id="preview-img" src="" alt="preview">
+  <button id="preview-close">閉じる</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const indicator = document.getElementById('eraser-indicator');
+const previewOverlay = document.getElementById('preview-overlay');
+const previewImg = document.getElementById('preview-img');
+
+let mode = 'pen';
+let brushSize = 2;
+let isDrawing = false;
+let currentStroke = null;
+
+let strokes = [];
+let undoStack = [];
+
+const ERASER_RADIUS = 8;
+const PADDING = 20; // トリミング余白
+
+// --- リサイズ ---
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  redraw();
+}
+
+// --- 全再描画 ---
+function redraw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#1e1e1e';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  for (const stroke of strokes) drawStroke(stroke);
+  if (currentStroke && currentStroke.points.length > 0) drawStroke(currentStroke);
+}
+
+// --- 1ストローク描画 ---
+function drawStroke(stroke) {
+  const pts = stroke.points;
+  if (pts.length === 0) return;
+  ctx.beginPath();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#e8e4da';
+  ctx.fillStyle = '#e8e4da';
+
+  if (pts.length === 1) {
+    const r = Math.max(stroke.size * (0.5 + pts[0].pressure * 0.5) / 2, 1);
+    ctx.arc(pts[0].x, pts[0].y, r, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) {
+    const p = pts[i];
+    ctx.lineWidth = stroke.size * (0.5 + p.pressure * 1.0);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+  }
+}
+
+// --- 描画範囲のバウンディングボックスを計算 ---
+function getBoundingBox() {
+  if (strokes.length === 0) return null;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const stroke of strokes) {
+    for (const p of stroke.points) {
+      const halfW = stroke.size * 1.5; // 線幅の半分を考慮
+      minX = Math.min(minX, p.x - halfW);
+      minY = Math.min(minY, p.y - halfW);
+      maxX = Math.max(maxX, p.x + halfW);
+      maxY = Math.max(maxY, p.y + halfW);
+    }
+  }
+  // パディングを追加してキャンバス範囲内にクランプ
+  minX = Math.max(0, minX - PADDING);
+  minY = Math.max(0, minY - PADDING);
+  maxX = Math.min(canvas.width, maxX + PADDING);
+  maxY = Math.min(canvas.height, maxY + PADDING);
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+}
+
+// --- トリミングしてData URLを返す ---
+function getCroppedDataURL() {
+  const bb = getBoundingBox();
+  if (!bb || bb.w <= 0 || bb.h <= 0) return canvas.toDataURL('image/png');
+
+  const tmp = document.createElement('canvas');
+  tmp.width = bb.w;
+  tmp.height = bb.h;
+  const tctx = tmp.getContext('2d');
+  tctx.fillStyle = '#1e1e1e';
+  tctx.fillRect(0, 0, bb.w, bb.h);
+  tctx.drawImage(canvas, bb.x, bb.y, bb.w, bb.h, 0, 0, bb.w, bb.h);
+  return tmp.toDataURL('image/png');
+}
+
+// --- 座標取得 ---
+function getPos(e) {
+  const r = canvas.getBoundingClientRect();
+  if (e.touches) return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+
+// --- ヒットテスト ---
+function distToSegment(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return Math.hypot(px - ax, py - ay);
+  let t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
+function strokeHitTest(stroke, x, y, radius) {
+  const pts = stroke.points;
+  if (pts.length === 1) return Math.hypot(pts[0].x - x, pts[0].y - y) < radius;
+  for (let i = 0; i < pts.length - 1; i++) {
+    if (distToSegment(x, y, pts[i].x, pts[i].y, pts[i+1].x, pts[i+1].y) < radius) return true;
+  }
+  return false;
+}
+
+function eraseAt(x, y) {
+  const before = strokes.length;
+  strokes = strokes.filter(s => !strokeHitTest(s, x, y, ERASER_RADIUS));
+  if (strokes.length !== before) redraw();
+}
+
+// --- ポインターイベント ---
+canvas.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  const pos = getPos(e);
+  if (mode === 'eraser') {
+    saveUndo();
+    isDrawing = true;
+    showIndicator(pos.x, pos.y);
+    eraseAt(pos.x, pos.y);
+    return;
+  }
+  saveUndo();
+  isDrawing = true;
+  const pressure = e.pressure > 0 ? e.pressure : 0.5;
+  currentStroke = { size: brushSize, points: [{ x: pos.x, y: pos.y, pressure }] };
+});
+
+canvas.addEventListener('pointermove', e => {
+  e.preventDefault();
+  const pos = getPos(e);
+  if (mode === 'eraser' && isDrawing) {
+    showIndicator(pos.x, pos.y);
+    eraseAt(pos.x, pos.y);
+    return;
+  }
+  if (!isDrawing) return;
+  const pressure = e.pressure > 0 ? e.pressure : 0.5;
+  currentStroke.points.push({ x: pos.x, y: pos.y, pressure });
+  const pts = currentStroke.points;
+  const i = pts.length - 2;
+  if (i >= 0) {
+    ctx.beginPath();
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#e8e4da';
+    ctx.lineWidth = brushSize * (0.5 + pressure * 1.0);
+    ctx.moveTo(pts[i].x, pts[i].y);
+    ctx.lineTo(pts[i+1].x, pts[i+1].y);
+    ctx.stroke();
+  }
+});
+
+canvas.addEventListener('pointerup', endDraw);
+canvas.addEventListener('pointercancel', endDraw);
+canvas.addEventListener('pointerleave', e => { endDraw(e); hideIndicator(); });
+
+function showIndicator(x, y) {
+  indicator.style.left = x + 'px'; indicator.style.top = y + 'px';
+  indicator.style.width = (ERASER_RADIUS * 2) + 'px';
+  indicator.style.height = (ERASER_RADIUS * 2) + 'px';
+  indicator.style.opacity = '0.7';
+}
+function hideIndicator() { indicator.style.opacity = '0'; }
+
+function endDraw() {
+  if (isDrawing && mode === 'pen' && currentStroke) {
+    if (currentStroke.points.length > 0) strokes.push(currentStroke);
+    currentStroke = null;
+  }
+  isDrawing = false;
+  hideIndicator();
+}
+
+canvas.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+canvas.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+
+// --- Undo ---
+function saveUndo() {
+  undoStack.push([...strokes]);
+  if (undoStack.length > 30) undoStack.shift();
+}
+function undo() {
+  if (undoStack.length === 0) { toast('戻せる操作がありません'); return; }
+  strokes = undoStack.pop();
+  redraw();
+  toast('1つ戻しました');
+}
+
+// --- UI ---
+document.getElementById('btn-pen').addEventListener('click', () => setMode('pen'));
+document.getElementById('btn-eraser').addEventListener('click', () => setMode('eraser'));
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('btn-pen').classList.toggle('active', m === 'pen');
+  document.getElementById('btn-eraser').classList.toggle('active', m === 'eraser');
+  document.body.classList.toggle('eraser-mode', m === 'eraser');
+}
+
+document.getElementById('btn-undo').addEventListener('click', undo);
+
+document.getElementById('btn-clear').addEventListener('click', () => {
+  saveUndo(); strokes = []; redraw(); toast('クリアしました');
+});
+
+const slider = document.getElementById('size-slider');
+const dot = document.getElementById('size-dot');
+slider.addEventListener('input', () => {
+  brushSize = parseInt(slider.value);
+  const s = Math.max(4, Math.min(20, brushSize * 0.7));
+  dot.style.width = s + 'px'; dot.style.height = s + 'px';
+});
+
+// 共有 → トリミングしてWeb Share API
+document.getElementById('btn-copy').addEventListener('click', async () => {
+  if (strokes.length === 0) { toast('何も描かれていません'); return; }
+  const dataURL = getCroppedDataURL();
+
+  // dataURL → Blob → File
+  const res = await fetch(dataURL);
+  const blob = await res.blob();
+  const file = new File([blob], 'sketch.png', { type: 'image/png' });
+
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file] });
+    } catch (e) {
+      if (e.name !== 'AbortError') toast('共有に失敗しました');
+    }
+  } else {
+    // フォールバック：ポップアップ表示
+    previewImg.src = dataURL;
+    previewOverlay.classList.add('show');
+  }
+});
+
+document.getElementById('preview-close').addEventListener('click', () => {
+  previewOverlay.classList.remove('show');
+  previewImg.src = '';
+});
+
+// オーバーレイ外タップで閉じる
+previewOverlay.addEventListener('click', e => {
+  if (e.target === previewOverlay) {
+    previewOverlay.classList.remove('show');
+    previewImg.src = '';
+  }
+});
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+window.addEventListener('resize', resize);
+resize();
+</script>
+</body>
+</html>
