@@ -18,10 +18,21 @@
     --bg: #141414;
     --canvas-bg: #1e1e1e;
     --ink: #e8e4da;
+    --dot: rgba(232,228,218,0.2);
     --ui-bg: rgba(20,20,20,0.92);
     --ui-border: rgba(232,228,218,0.12);
     --accent: #e8724a;
     --btn-hover: rgba(232,228,218,0.06);
+  }
+
+  body.light {
+    --bg: #f0ede6;
+    --canvas-bg: #fafaf8;
+    --ink: #1a1a2e;
+    --dot: rgba(26,26,46,0.18);
+    --ui-bg: rgba(240,237,230,0.92);
+    --ui-border: rgba(26,26,46,0.12);
+    --btn-hover: rgba(26,26,46,0.06);
   }
 
   html, body {
@@ -32,33 +43,27 @@
   }
 
   #canvas {
-    position: fixed;
-    top: 0; left: 0;
+    position: fixed; top: 0; left: 0;
     width: 100%; height: 100%;
-    cursor: crosshair;
-    touch-action: none;
+    cursor: crosshair; touch-action: none;
   }
 
   body.eraser-mode #canvas { cursor: cell; }
 
   #toolbar {
-    position: fixed;
-    top: 16px; left: 50%;
+    position: fixed; top: 16px; left: 50%;
     transform: translateX(-50%);
-    display: flex;
-    align-items: center;
-    gap: 4px;
+    display: flex; align-items: center; gap: 4px;
     background: var(--ui-bg);
     border: 1px solid var(--ui-border);
-    border-radius: 14px;
-    padding: 6px 8px;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    border-radius: 14px; padding: 6px 8px;
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
     box-shadow: 0 4px 24px rgba(0,0,0,0.1);
     z-index: 100;
+    transition: background 0.2s, border-color 0.2s;
   }
 
-  .sep { width: 1px; height: 20px; background: var(--ui-border); margin: 0 4px; }
+  .sep { width: 1px; height: 20px; background: var(--ui-border); margin: 0 4px; transition: background 0.2s; }
 
   .btn {
     width: 36px; height: 36px;
@@ -79,7 +84,7 @@
   #size-wrap { display: flex; align-items: center; gap: 6px; padding: 0 6px; }
   #size-dot {
     width: 8px; height: 8px; border-radius: 50%;
-    background: var(--ink); transition: width 0.1s, height 0.1s; flex-shrink: 0;
+    background: var(--ink); transition: width 0.1s, height 0.1s, background 0.2s; flex-shrink: 0;
   }
   #size-slider {
     -webkit-appearance: none; appearance: none;
@@ -98,42 +103,16 @@
     z-index: 50; transform: translate(-50%, -50%);
   }
 
-  /* 画像プレビューポップアップ */
   #preview-overlay {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.8);
-    z-index: 300;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    gap: 16px;
-    padding: 24px;
+    position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+    z-index: 300; display: none;
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px; padding: 24px;
   }
   #preview-overlay.show { display: flex; }
-
-  #preview-label {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    color: rgba(232,228,218,0.5);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
-  #preview-img {
-    max-width: 100%; max-height: 65vh;
-    border-radius: 8px;
-    border: 1px solid rgba(232,228,218,0.15);
-    display: block;
-  }
-
-  #preview-close {
-    font-family: 'DM Mono', monospace; font-size: 12px;
-    color: var(--ink); background: var(--ui-bg);
-    border: 1px solid var(--ui-border); border-radius: 8px;
-    padding: 10px 28px; cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-  }
+  #preview-label { font-family: 'DM Mono', monospace; font-size: 11px; color: rgba(232,228,218,0.5); letter-spacing: 0.06em; text-transform: uppercase; }
+  #preview-img { max-width: 100%; max-height: 65vh; border-radius: 8px; border: 1px solid rgba(232,228,218,0.15); display: block; }
+  #preview-close { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--ink); background: var(--ui-bg); border: 1px solid var(--ui-border); border-radius: 8px; padding: 10px 28px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 
   #toast {
     position: fixed; bottom: 32px; left: 50%;
@@ -180,12 +159,18 @@
 
   <div class="sep"></div>
 
+  <!-- 背景切り替え -->
+  <button class="btn" id="btn-theme" title="背景切り替え">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18Z" fill="currentColor" stroke="none"/></svg>
+  </button>
+
+  <div class="sep"></div>
+
   <button class="btn" id="btn-copy" title="共有">
     <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
   </button>
 </div>
 
-<!-- プレビューポップアップ -->
 <div id="preview-overlay">
   <div id="preview-label">長押しで共有</div>
   <img id="preview-img" src="" alt="preview">
@@ -205,14 +190,20 @@ let mode = 'pen';
 let brushSize = 2;
 let isDrawing = false;
 let currentStroke = null;
+let isLight = false; // false=黒背景, true=白背景
 
 let strokes = [];
 let undoStack = [];
 
 const ERASER_RADIUS = 8;
-const PADDING = 20; // トリミング余白
-
+const PADDING = 20;
+const DOT_SPACING = 24; // ドット間隔(px)
 const DPR = window.devicePixelRatio || 1;
+
+// --- テーマ設定 ---
+function getBgColor() { return isLight ? '#fafaf8' : '#1e1e1e'; }
+function getInkColor() { return isLight ? '#1a1a2e' : '#e8e4da'; }
+function getDotColor() { return isLight ? 'rgba(26,26,46,0.18)' : 'rgba(232,228,218,0.2)'; }
 
 // --- リサイズ ---
 function resize() {
@@ -226,80 +217,96 @@ function resize() {
   redraw();
 }
 
+// --- ドット罫を描画 ---
+function drawDots() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  ctx.fillStyle = getDotColor();
+  const r = 1.2;
+  for (let x = DOT_SPACING; x < w; x += DOT_SPACING) {
+    for (let y = DOT_SPACING; y < h; y += DOT_SPACING) {
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
 // --- 全再描画 ---
 function redraw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = '#1e1e1e';
+  ctx.fillStyle = getBgColor();
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+  drawDots();
   for (const stroke of strokes) drawStroke(stroke);
   if (currentStroke && currentStroke.points.length > 0) drawStroke(currentStroke);
 }
 
-// --- 1ストローク描画 ---
-function drawStroke(stroke) {
+// --- 1ストローク描画（メインcanvas用） ---
+function drawStroke(stroke) { drawStrokeOn(ctx, stroke); }
+
+// --- 1ストローク描画（任意のcontext用） ---
+function drawStrokeOn(c, stroke) {
   const pts = stroke.points;
   if (pts.length === 0) return;
-  ctx.beginPath();
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.strokeStyle = '#e8e4da';
-  ctx.fillStyle = '#e8e4da';
+  c.beginPath();
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  c.strokeStyle = getInkColor();
+  c.fillStyle = getInkColor();
 
   if (pts.length === 1) {
     const r = Math.max(stroke.size * (0.5 + pts[0].pressure * 0.5) / 2, 1);
-    ctx.arc(pts[0].x, pts[0].y, r, 0, Math.PI * 2);
-    ctx.fill();
+    c.arc(pts[0].x, pts[0].y, r, 0, Math.PI * 2);
+    c.fill();
     return;
   }
 
-  ctx.moveTo(pts[0].x, pts[0].y);
+  c.moveTo(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i++) {
     const p = pts[i];
-    ctx.lineWidth = stroke.size * (0.5 + p.pressure * 1.0);
-    ctx.lineTo(p.x, p.y);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(p.x, p.y);
+    c.lineWidth = stroke.size * (0.5 + p.pressure * 1.0);
+    c.lineTo(p.x, p.y);
+    c.stroke();
+    c.beginPath();
+    c.moveTo(p.x, p.y);
   }
 }
 
-// --- 描画範囲のバウンディングボックスを計算（CSSピクセル） ---
+// --- バウンディングボックス ---
 function getBoundingBox() {
   if (strokes.length === 0) return null;
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const stroke of strokes) {
     for (const p of stroke.points) {
       const halfW = stroke.size * 1.5;
-      minX = Math.min(minX, p.x - halfW);
-      minY = Math.min(minY, p.y - halfW);
-      maxX = Math.max(maxX, p.x + halfW);
-      maxY = Math.max(maxY, p.y + halfW);
+      minX = Math.min(minX, p.x - halfW); minY = Math.min(minY, p.y - halfW);
+      maxX = Math.max(maxX, p.x + halfW); maxY = Math.max(maxY, p.y + halfW);
     }
   }
-  minX = Math.max(0, minX - PADDING);
-  minY = Math.max(0, minY - PADDING);
+  minX = Math.max(0, minX - PADDING); minY = Math.max(0, minY - PADDING);
   maxX = Math.min(window.innerWidth, maxX + PADDING);
   maxY = Math.min(window.innerHeight, maxY + PADDING);
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
-// --- トリミングしてData URLを返す（DPR反映） ---
+// --- トリミング（ドットなし） ---
 function getCroppedDataURL() {
   const bb = getBoundingBox();
   if (!bb || bb.w <= 0 || bb.h <= 0) return canvas.toDataURL('image/png');
-
-  // DPR倍した物理ピクセル座標でトリミング
   const tmp = document.createElement('canvas');
-  tmp.width = bb.w * DPR;
-  tmp.height = bb.h * DPR;
+  tmp.width = bb.w * DPR; tmp.height = bb.h * DPR;
   const tctx = tmp.getContext('2d');
-  tctx.fillStyle = '#1e1e1e';
-  tctx.fillRect(0, 0, tmp.width, tmp.height);
-  tctx.drawImage(canvas, bb.x * DPR, bb.y * DPR, bb.w * DPR, bb.h * DPR, 0, 0, tmp.width, tmp.height);
+  tctx.scale(DPR, DPR);
+  // 背景のみ（ドットなし）
+  tctx.fillStyle = getBgColor();
+  tctx.fillRect(0, 0, bb.w, bb.h);
+  // ストロークをオフセットして描画
+  tctx.translate(-bb.x, -bb.y);
+  for (const stroke of strokes) drawStrokeOn(tctx, stroke);
   return tmp.toDataURL('image/png');
 }
 
-// --- 座標取得（CSSピクセル） ---
+// --- 座標取得 ---
 function getPos(e) {
   const r = canvas.getBoundingClientRect();
   if (e.touches) return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
@@ -333,27 +340,24 @@ function eraseAt(x, y) {
 // --- ポインターイベント ---
 canvas.addEventListener('pointerdown', e => {
   e.preventDefault();
+  if (e.pointerType !== 'pen') return;
   const pos = getPos(e);
   if (mode === 'eraser') {
-    saveUndo();
-    isDrawing = true;
-    showIndicator(pos.x, pos.y);
-    eraseAt(pos.x, pos.y);
+    saveUndo(); isDrawing = true;
+    showIndicator(pos.x, pos.y); eraseAt(pos.x, pos.y);
     return;
   }
-  saveUndo();
-  isDrawing = true;
+  saveUndo(); isDrawing = true;
   const pressure = e.pressure > 0 ? e.pressure : 0.5;
   currentStroke = { size: brushSize, points: [{ x: pos.x, y: pos.y, pressure }] };
 });
 
 canvas.addEventListener('pointermove', e => {
   e.preventDefault();
+  if (e.pointerType !== 'pen') return;
   const pos = getPos(e);
   if (mode === 'eraser' && isDrawing) {
-    showIndicator(pos.x, pos.y);
-    eraseAt(pos.x, pos.y);
-    return;
+    showIndicator(pos.x, pos.y); eraseAt(pos.x, pos.y); return;
   }
   if (!isDrawing) return;
   const pressure = e.pressure > 0 ? e.pressure : 0.5;
@@ -363,7 +367,7 @@ canvas.addEventListener('pointermove', e => {
   if (i >= 0) {
     ctx.beginPath();
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.strokeStyle = '#e8e4da';
+    ctx.strokeStyle = getInkColor();
     ctx.lineWidth = brushSize * (0.5 + pressure * 1.0);
     ctx.moveTo(pts[i].x, pts[i].y);
     ctx.lineTo(pts[i+1].x, pts[i+1].y);
@@ -388,8 +392,7 @@ function endDraw() {
     if (currentStroke.points.length > 0) strokes.push(currentStroke);
     currentStroke = null;
   }
-  isDrawing = false;
-  hideIndicator();
+  isDrawing = false; hideIndicator();
 }
 
 canvas.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
@@ -402,9 +405,7 @@ function saveUndo() {
 }
 function undo() {
   if (undoStack.length === 0) { toast('戻せる操作がありません'); return; }
-  strokes = undoStack.pop();
-  redraw();
-  toast('1つ戻しました');
+  strokes = undoStack.pop(); redraw(); toast('1つ戻しました');
 }
 
 // --- UI ---
@@ -424,6 +425,13 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   saveUndo(); strokes = []; redraw(); toast('クリアしました');
 });
 
+// 背景切り替え
+document.getElementById('btn-theme').addEventListener('click', () => {
+  isLight = !isLight;
+  document.body.classList.toggle('light', isLight);
+  redraw();
+});
+
 const slider = document.getElementById('size-slider');
 const dot = document.getElementById('size-dot');
 slider.addEventListener('input', () => {
@@ -432,12 +440,10 @@ slider.addEventListener('input', () => {
   dot.style.width = s + 'px'; dot.style.height = s + 'px';
 });
 
-// 共有 → トリミングしてWeb Share API
+// 共有
 document.getElementById('btn-copy').addEventListener('click', async () => {
   if (strokes.length === 0) { toast('何も描かれていません'); return; }
   const dataURL = getCroppedDataURL();
-
-  // dataURL → Blob → File
   const res = await fetch(dataURL);
   const blob = await res.blob();
   const file = new File([blob], 'sketch.png', { type: 'image/png' });
@@ -449,29 +455,21 @@ document.getElementById('btn-copy').addEventListener('click', async () => {
       if (e.name !== 'AbortError') toast('共有に失敗しました');
     }
   } else {
-    // フォールバック：ポップアップ表示
     previewImg.src = dataURL;
     previewOverlay.classList.add('show');
   }
 });
 
 document.getElementById('preview-close').addEventListener('click', () => {
-  previewOverlay.classList.remove('show');
-  previewImg.src = '';
+  previewOverlay.classList.remove('show'); previewImg.src = '';
 });
-
-// オーバーレイ外タップで閉じる
 previewOverlay.addEventListener('click', e => {
-  if (e.target === previewOverlay) {
-    previewOverlay.classList.remove('show');
-    previewImg.src = '';
-  }
+  if (e.target === previewOverlay) { previewOverlay.classList.remove('show'); previewImg.src = ''; }
 });
 
 function toast(msg) {
   const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
+  el.textContent = msg; el.classList.add('show');
   clearTimeout(toast._t);
   toast._t = setTimeout(() => el.classList.remove('show'), 2000);
 }
