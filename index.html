@@ -196,13 +196,35 @@ function drawDots() {
   }
 }
 
+// --- カリング：ストロークが現在のビューポートに入っているか判定 ---
+function isStrokeVisible(stroke) {
+  const pts = stroke.points;
+  if (pts.length === 0) return false;
+  const margin = stroke.size * 2;
+  // ビューポートのワールド座標範囲
+  const tl = screenToWorld(0, 0);
+  const br = screenToWorld(window.innerWidth, window.innerHeight);
+  const vMinX = tl.x - margin, vMinY = tl.y - margin;
+  const vMaxX = br.x + margin, vMaxY = br.y + margin;
+  // ストロークのAABBを計算
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of pts) {
+    minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+    maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
+  }
+  // AABBとビューポートが重なっているか
+  return maxX >= vMinX && minX <= vMaxX && maxY >= vMinY && minY <= vMaxY;
+}
+
 // --- 全再描画 ---
 function redraw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = getBgColor();
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   drawDots();
-  for (const stroke of strokes) drawStrokeOn(ctx, stroke, true);
+  for (const stroke of strokes) {
+    if (isStrokeVisible(stroke)) drawStrokeOn(ctx, stroke, true);
+  }
   if (currentStroke && currentStroke.points.length > 0) drawStrokeOn(ctx, currentStroke, true);
 }
 
