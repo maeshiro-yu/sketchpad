@@ -323,7 +323,7 @@ function eraseAt(wx, wy) {
   const r = ERASER_RADIUS / viewScale;
   const before = strokes.length;
   strokes = strokes.filter(s => !strokeHitTest(s, wx, wy, r));
-  if (strokes.length !== before) redraw();
+  if (strokes.length !== before) { redraw(); saveToStorage(); }
 }
 
 // --- タッチ管理 ---
@@ -495,7 +495,7 @@ function hideIndicator() { indicator.style.opacity = '0'; }
 
 function endDraw() {
   if (isDrawing && mode === 'pen' && currentStroke) {
-    if (currentStroke.points.length > 0) strokes.push(currentStroke);
+    if (currentStroke.points.length > 0) { strokes.push(currentStroke); saveToStorage(); }
     currentStroke = null;
   }
   isDrawing = false; hideIndicator();
@@ -504,6 +504,22 @@ function endDraw() {
 canvas.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
 canvas.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
 
+// --- 永続化 ---
+const STORAGE_KEY = 'sketchpad_strokes';
+
+function saveToStorage() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(strokes));
+  } catch(e) { /* 容量超過時は無視 */ }
+}
+
+function loadFromStorage() {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    if (data) strokes = JSON.parse(data);
+  } catch(e) { strokes = []; }
+}
+
 // --- Undo ---
 function saveUndo() {
   undoStack.push([...strokes]);
@@ -511,7 +527,7 @@ function saveUndo() {
 }
 function undo() {
   if (undoStack.length === 0) { toast('戻せる操作がありません'); return; }
-  strokes = undoStack.pop(); redraw(); toast('1つ戻しました');
+  strokes = undoStack.pop(); redraw(); saveToStorage(); toast('1つ戻しました');
 }
 
 // --- UI ---
@@ -525,7 +541,7 @@ function setMode(m) {
 }
 document.getElementById('btn-undo').addEventListener('click', undo);
 document.getElementById('btn-clear').addEventListener('click', () => {
-  saveUndo(); strokes = []; redraw(); toast('クリアしました');
+  saveUndo(); strokes = []; redraw(); saveToStorage(); toast('クリアしました');
 });
 document.getElementById('btn-theme').addEventListener('click', () => {
   isLight = !isLight;
@@ -572,6 +588,7 @@ function toast(msg) {
 }
 
 window.addEventListener('resize', resize);
+loadFromStorage();
 resize();
 
 if ('serviceWorker' in navigator) {
