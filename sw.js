@@ -1,4 +1,4 @@
-const CACHE = 'sketchpad-v6';
+const CACHE = 'sketchpad-v12';
 const FILES = ['./index.html', './manifest.json'];
 
 self.addEventListener('install', e => {

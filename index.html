@@ -70,6 +70,15 @@
   #preview-label { font-family:'DM Mono',monospace; font-size:11px; color:rgba(232,228,218,0.5); letter-spacing:0.06em; text-transform:uppercase; }
   #preview-img { max-width:100%; max-height:65vh; border-radius:8px; border:1px solid rgba(232,228,218,0.15); display:block; }
   #preview-close { font-family:'DM Mono',monospace; font-size:12px; color:var(--ink); background:var(--ui-bg); border:1px solid var(--ui-border); border-radius:8px; padding:10px 28px; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  /* 選択モード */
+  #select-canvas {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 10;
+  }
+  body.select-mode #select-canvas { pointer-events: auto; cursor: crosshair; touch-action: none; }
+
   #toast {
     position:fixed; bottom:32px; left:50%; transform:translateX(-50%) translateY(20px);
     background:var(--ink); color:var(--canvas-bg);
@@ -83,6 +92,7 @@
 </head>
 <body>
 <canvas id="canvas"></canvas>
+<canvas id="select-canvas"></canvas>
 <div id="eraser-indicator"></div>
 <div id="toolbar">
   <button class="btn active" id="btn-pen" title="ペン">
@@ -106,6 +116,10 @@
   <div class="sep"></div>
   <button class="btn" id="btn-theme" title="背景切り替え">
     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M12 3a9 9 0 0 1 0 18Z" fill="currentColor" stroke="none"/></svg>
+  </button>
+  <div class="sep"></div>
+  <button class="btn" id="btn-select" title="範囲選択して共有">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1" stroke-dasharray="4 2"/><path d="M9 15l3 3 3-3M12 18V9"/></svg>
   </button>
   <div class="sep"></div>
   <button class="btn" id="btn-copy" title="共有">
@@ -326,6 +340,118 @@ function eraseAt(wx, wy) {
   if (strokes.length !== before) { redraw(); saveToStorage(); }
 }
 
+const selCanvas = document.getElementById('select-canvas');
+const selCtx = selCanvas.getContext('2d');
+
+// 選択モード
+let selStart = null; // {x, y} スクリーン座標
+let selEnd = null;
+let isSelecting = false;
+
+function resizeSelCanvas() {
+  selCanvas.width = window.innerWidth * DPR;
+  selCanvas.height = window.innerHeight * DPR;
+  selCanvas.style.width = window.innerWidth + 'px';
+  selCanvas.style.height = window.innerHeight + 'px';
+  selCtx.scale(DPR, DPR);
+}
+
+function drawSelRect() {
+  selCtx.clearRect(0, 0, selCanvas.width, selCanvas.height);
+  if (!selStart || !selEnd) return;
+  const x = Math.min(selStart.x, selEnd.x);
+  const y = Math.min(selStart.y, selEnd.y);
+  const w = Math.abs(selEnd.x - selStart.x);
+  const h = Math.abs(selEnd.y - selStart.y);
+  // 背景を薄く塗る
+  selCtx.fillStyle = 'rgba(232,180,100,0.08)';
+  selCtx.fillRect(x, y, w, h);
+  // 破線の枠
+  selCtx.strokeStyle = '#e8724a';
+  selCtx.lineWidth = 1.5;
+  selCtx.setLineDash([6, 3]);
+  selCtx.strokeRect(x, y, w, h);
+  selCtx.setLineDash([]);
+}
+
+function clearSelRect() {
+  selCtx.clearRect(0, 0, selCanvas.width, selCanvas.height);
+  selStart = null; selEnd = null;
+}
+
+// 選択範囲（スクリーン座標）でトリミングしてシェア
+async function shareSelection() {
+  if (!selStart || !selEnd) return;
+  const sx = Math.min(selStart.x, selEnd.x);
+  const sy = Math.min(selStart.y, selEnd.y);
+  const sw = Math.abs(selEnd.x - selStart.x);
+  const sh = Math.abs(selEnd.y - selStart.y);
+  if (sw < 4 || sh < 4) { toast('範囲が小さすぎます'); return; }
+
+  // スクリーン座標 → ワールド座標に変換
+  const wTL = screenToWorld(sx, sy);
+  const wBR = screenToWorld(sx + sw, sy + sh);
+  const ww = wBR.x - wTL.x;
+  const wh = wBR.y - wTL.y;
+
+  const tmp = document.createElement('canvas');
+  tmp.width = sw * DPR; tmp.height = sh * DPR;
+  const tctx = tmp.getContext('2d');
+  tctx.scale(DPR, DPR);
+  tctx.fillStyle = getBgColor();
+  tctx.fillRect(0, 0, sw, sh);
+  tctx.translate(-wTL.x, -wTL.y);
+  for (const stroke of strokes) drawStrokeOn(tctx, stroke, false);
+  const dataURL = tmp.toDataURL('image/png');
+
+  // 選択解除してから共有
+  setMode('pen');
+
+  const res = await fetch(dataURL);
+  const blob = await res.blob();
+  const file = new File([blob], 'sketch.png', { type: 'image/png' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file] }); }
+    catch (e) { if (e.name !== 'AbortError') toast('共有に失敗しました'); }
+  } else {
+    previewImg.src = dataURL;
+    previewOverlay.classList.add('show');
+  }
+}
+
+// 選択canvasのイベント（選択モード中のみ有効）
+selCanvas.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  if (e.pointerType === 'touch') return;
+  selStart = { x: e.clientX, y: e.clientY };
+  selEnd = { x: e.clientX, y: e.clientY };
+  isSelecting = true;
+});
+
+selCanvas.addEventListener('pointermove', e => {
+  e.preventDefault();
+  if (e.pointerType === 'touch') return;
+  if (!isSelecting) return;
+  selEnd = { x: e.clientX, y: e.clientY };
+  drawSelRect();
+});
+
+selCanvas.addEventListener('pointerup', e => {
+  if (e.pointerType === 'touch') return;
+  if (!isSelecting) return;
+  isSelecting = false;
+  selEnd = { x: e.clientX, y: e.clientY };
+  drawSelRect();
+  shareSelection();
+});
+
+selCanvas.addEventListener('pointercancel', e => {
+  isSelecting = false;
+});
+
+selCanvas.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+selCanvas.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+
 // --- タッチ管理 ---
 const touches = new Map(); // pointerId → {x, y}
 
@@ -533,11 +659,15 @@ function undo() {
 // --- UI ---
 document.getElementById('btn-pen').addEventListener('click', () => setMode('pen'));
 document.getElementById('btn-eraser').addEventListener('click', () => setMode('eraser'));
+document.getElementById('btn-select').addEventListener('click', () => setMode('select'));
 function setMode(m) {
   mode = m;
   document.getElementById('btn-pen').classList.toggle('active', m === 'pen');
   document.getElementById('btn-eraser').classList.toggle('active', m === 'eraser');
+  document.getElementById('btn-select').classList.toggle('active', m === 'select');
   document.body.classList.toggle('eraser-mode', m === 'eraser');
+  document.body.classList.toggle('select-mode', m === 'select');
+  if (m !== 'select') clearSelRect();
 }
 document.getElementById('btn-undo').addEventListener('click', undo);
 document.getElementById('btn-clear').addEventListener('click', () => {
@@ -587,9 +717,10 @@ function toast(msg) {
   toast._t = setTimeout(() => el.classList.remove('show'), 2000);
 }
 
-window.addEventListener('resize', resize);
+window.addEventListener('resize', () => { resize(); resizeSelCanvas(); });
 loadFromStorage();
 resize();
+resizeSelCanvas();
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js');
