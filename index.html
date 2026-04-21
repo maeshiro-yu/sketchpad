@@ -424,8 +424,9 @@ async function shareSelection() {
 selCanvas.addEventListener('pointerdown', e => {
   e.preventDefault();
   if (e.pointerType === 'touch') return;
-  selStart = { x: e.clientX, y: e.clientY };
-  selEnd = { x: e.clientX, y: e.clientY };
+  const r = selCanvas.getBoundingClientRect();
+  selStart = { x: e.clientX - r.left, y: e.clientY - r.top };
+  selEnd = { ...selStart };
   isSelecting = true;
 });
 
@@ -433,7 +434,8 @@ selCanvas.addEventListener('pointermove', e => {
   e.preventDefault();
   if (e.pointerType === 'touch') return;
   if (!isSelecting) return;
-  selEnd = { x: e.clientX, y: e.clientY };
+  const r = selCanvas.getBoundingClientRect();
+  selEnd = { x: e.clientX - r.left, y: e.clientY - r.top };
   drawSelRect();
 });
 
@@ -441,7 +443,8 @@ selCanvas.addEventListener('pointerup', e => {
   if (e.pointerType === 'touch') return;
   if (!isSelecting) return;
   isSelecting = false;
-  selEnd = { x: e.clientX, y: e.clientY };
+  const r = selCanvas.getBoundingClientRect();
+  selEnd = { x: e.clientX - r.left, y: e.clientY - r.top };
   drawSelRect();
   shareSelection();
 });
