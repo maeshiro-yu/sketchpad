@@ -104,7 +104,7 @@
   <div class="sep"></div>
   <div id="size-wrap">
     <div id="size-dot"></div>
-    <input type="range" id="size-slider" min="2" max="20" value="2">
+    <input type="range" id="size-slider" min="1" max="5" step="1" value="2">
   </div>
   <div class="sep"></div>
   <button class="btn" id="btn-undo" title="元に戻す">
@@ -143,7 +143,6 @@ const previewImg = document.getElementById('preview-img');
 const zoomLabel = document.getElementById('zoom-label');
 
 let mode = 'pen';
-let brushSize = 2;
 let isDrawing = false;
 let currentStroke = null;
 let isLight = false;
@@ -683,10 +682,13 @@ document.getElementById('btn-theme').addEventListener('click', () => {
   redraw();
 });
 
+const SIZE_STEPS = [2, 4, 7, 11, 16]; // 5段階のブラシサイズ
+let brushSize = SIZE_STEPS[1]; // デフォルトは下から2番目
+
 const slider = document.getElementById('size-slider');
 const dot = document.getElementById('size-dot');
 slider.addEventListener('input', () => {
-  brushSize = parseInt(slider.value);
+  brushSize = SIZE_STEPS[parseInt(slider.value) - 1];
   const s = Math.max(4, Math.min(20, brushSize * 0.7));
   dot.style.width = s + 'px'; dot.style.height = s + 'px';
 });
