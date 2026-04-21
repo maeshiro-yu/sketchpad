@@ -391,15 +391,16 @@ async function shareSelection() {
   // スクリーン座標 → ワールド座標に変換
   const wTL = screenToWorld(sx, sy);
   const wBR = screenToWorld(sx + sw, sy + sh);
-  const ww = wBR.x - wTL.x;
-  const wh = wBR.y - wTL.y;
+  const ww = wBR.x - wTL.x; // ワールド座標での幅
+  const wh = wBR.y - wTL.y; // ワールド座標での高さ
 
+  // 出力サイズはワールド座標基準（ズーム等倍で出力）
   const tmp = document.createElement('canvas');
-  tmp.width = sw * DPR; tmp.height = sh * DPR;
+  tmp.width = ww * DPR; tmp.height = wh * DPR;
   const tctx = tmp.getContext('2d');
   tctx.scale(DPR, DPR);
   tctx.fillStyle = getBgColor();
-  tctx.fillRect(0, 0, sw, sh);
+  tctx.fillRect(0, 0, ww, wh);
   tctx.translate(-wTL.x, -wTL.y);
   for (const stroke of strokes) drawStrokeOn(tctx, stroke, false);
   const dataURL = tmp.toDataURL('image/png');
